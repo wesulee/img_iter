@@ -9,7 +9,6 @@
 #include <cstdlib>
 #include <fstream>
 #include <map>
-#include <memory>
 #include <sstream>
 #include <string>
 
@@ -56,7 +55,6 @@ public:
 	ImageWriter() {}
 	~ImageWriter() {}
 	bool write(const Image&, const std::string&, const ImageFormat);
-	//static std::shared_ptr<ImageWriter> writeImage(const Image&, const std::string&, const ImageFormat)
 };
 
 

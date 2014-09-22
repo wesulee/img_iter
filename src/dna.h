@@ -8,7 +8,7 @@
 struct PolyDNA {
 	Color color;
 	float alpha;
-	std::vector<Polygon::Point> v;
+	std::vector<Point> v;
 };
 
 

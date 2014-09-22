@@ -3,7 +3,7 @@
 #include "file_helper.h"
 #include "img_iter.h"
 #include "viewer.h"
-#include <cstdio>
+#include <iomanip>
 #include <list>
 #include <string>
 
@@ -29,7 +29,7 @@ private:
 	const std::string imgPath;
 	const ImageFormat saveFormat;
 	const std::string saveExt;
-	int last = -1;
+	int last = 0;
 	ImageWriter iw;
 };
 

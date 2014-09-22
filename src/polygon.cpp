@@ -2,6 +2,14 @@
 
 
 Polygon::Polygon(const Container& c) : v(c) {
+	if (!c.empty()) {
+		auto it = c.cbegin();
+		bounds = Rectangle(*it);
+		for (++it; it != c.cend(); ++it) {
+			ShapeHelper::updateRectBoundsX(bounds, (*it).x);
+			ShapeHelper::updateRectBoundsY(bounds, (*it).y);
+		}
+	}
 }
 
 
@@ -21,32 +29,53 @@ bool Polygon::empty() const {
 }
 
 
+const Point& Polygon::get(const std::size_t i) const {
+	return v[i];
+}
+
+
 void Polygon::add(const Point& p) {
 	useCache = false;
+	if (v.empty()) {
+		bounds = Rectangle(p);
+	}
+	else {
+		ShapeHelper::updateRectBoundsX(bounds, p.x);
+		ShapeHelper::updateRectBoundsY(bounds, p.y);
+	}
 	v.push_back(p);
 }
 
 
 void Polygon::add(const int x, const int y) {
 	useCache = false;
+	if (v.empty()) {
+		bounds = Rectangle(Point{x, y});
+	}
+	else {
+		ShapeHelper::updateRectBoundsX(bounds, x);
+		ShapeHelper::updateRectBoundsY(bounds, y);
+	}
 	v.push_back(Point{x, y});
-}
-
-
-const Polygon::Point& Polygon::get(const std::size_t i) const {
-	return v[i];
 }
 
 
 void Polygon::setX(const std::size_t i, const int x) {
 	useCache = false;
 	v[i].x = x;
+	ShapeHelper::updateRectBoundsX(bounds, x);
 }
 
 
 void Polygon::setY(const std::size_t i, const int y) {
 	useCache = false;
 	v[i].y = y;
+	ShapeHelper::updateRectBoundsX(bounds, y);
+}
+
+
+Rectangle Polygon::getBounds() const {
+	return bounds;
 }
 
 

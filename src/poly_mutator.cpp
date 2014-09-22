@@ -33,7 +33,7 @@ Polygon poly_mutator::randSimplePoly(const float spacing, const float sharpness)
 	// polygon vertices
 	Polygon::Container v;
 	v.reserve(vertCount);
-	Polygon::Point p;
+	Point p;
 	// begin generating vertices
 	const float radInc = 2 * PI / vertCount;
 	float rad = randUni() * 2 * PI;
@@ -59,7 +59,7 @@ Polygon poly_mutator::randSimplePoly(const float spacing, const float sharpness)
 Polygon poly_mutator::randPoly() {
 	Polygon::Container v;
 	v.reserve(vertCount);
-	Polygon::Point p;
+	Point p;
 	for (int i = 0; i < vertCount; ++i) {
 		p.x = distVertX(re);
 		p.y = distVertY(re);
@@ -84,7 +84,7 @@ float poly_mutator::randAlpha() {
 }
 
 
-poly_mutator::Mutation poly_mutator::randMutation() {
+Mutation poly_mutator::randMutation() {
 	switch(distMut(re)) {
 	case 0:
 		return Mutation::X;
@@ -191,7 +191,7 @@ IterPoly::IterPoly(poly_mutator& pm)
 
 
 IterPoly::IterPoly(poly_mutator& pm, const PolyDNA& d)
-: mutator(pm),  p(), c(d.color), a(d.alpha) {
+: mutator(pm), p(), c(d.color), a(d.alpha) {
 	for (auto it = d.v.cbegin(); it != d.v.cend(); ++it)
 		p.add(*it);
 }
@@ -200,29 +200,29 @@ IterPoly::IterPoly(poly_mutator& pm, const PolyDNA& d)
 void IterPoly::mutate() {
 	m = mutator.randMutation();
 	switch (m) {
-	case poly_mutator::Mutation::X:
+	case Mutation::X:
 		index = mutator.randVertIndex();
 		pp = p.get(index).x;
 		p.setX(index, mutator.randVertX());
 		break;
-	case poly_mutator::Mutation::Y:
+	case Mutation::Y:
 		index = mutator.randVertIndex();
 		pp = p.get(index).y;
 		p.setY(index, mutator.randVertY());
 		break;
-	case poly_mutator::Mutation::R:
+	case Mutation::R:
 		cc = c.R;
 		c.R = mutator.randColChannel();
 		break;
-	case poly_mutator::Mutation::G:
+	case Mutation::G:
 		cc = c.G;
 		c.G = mutator.randColChannel();
 		break;
-	case poly_mutator::Mutation::B:
+	case Mutation::B:
 		cc = c.B;
 		c.B = mutator.randColChannel();
 		break;
-	case poly_mutator::Mutation::A:
+	case Mutation::A:
 		a2 = a;
 		a = mutator.randAlpha();
 		break;
@@ -233,24 +233,25 @@ void IterPoly::mutate() {
 
 
 // undo the most recent change
+// should be called only between mutate()
 void IterPoly::undo() {
 	switch (m) {
-	case poly_mutator::Mutation::X:
+	case Mutation::X:
 		swapVertX();
 		break;
-	case poly_mutator::Mutation::Y:
+	case Mutation::Y:
 		swapVertY();
 		break;
-	case poly_mutator::Mutation::R:
+	case Mutation::R:
 		swap(c.R, cc);
 		break;
-	case poly_mutator::Mutation::G:
+	case Mutation::G:
 		swap(c.G, cc);
 		break;
-	case poly_mutator::Mutation::B:
+	case Mutation::B:
 		swap(c.B, cc);
 		break;
-	case poly_mutator::Mutation::A:
+	case Mutation::A:
 		swap(a, a2);
 		break;
 	default:
@@ -274,17 +275,13 @@ float IterPoly::getAlpha() const {
 }
 
 
-void IterPoly::swapVertX() {
-	int tmp = pp;
-	pp = p.get(index).x;
-	p.setX(index, tmp);
+Mutation IterPoly::lastMutation() const {
+	return m;
 }
 
 
-void IterPoly::swapVertY() {
-	int tmp = pp;
-	pp = p.get(index).y;
-	p.setY(index, tmp);
+Rectangle IterPoly::getBounds() const {
+	return p.getBounds();
 }
 
 
@@ -293,4 +290,18 @@ void IterPoly::swap(T& a, T& b) {
 	T tmp = a;
 	a = b;
 	b = tmp;
+}
+
+
+void IterPoly::swapVertX() {
+	const int tmp = pp;
+	pp = p.get(index).x;
+	p.setX(index, tmp);
+}
+
+
+void IterPoly::swapVertY() {
+	const int tmp = pp;
+	pp = p.get(index).y;
+	p.setY(index, tmp);
 }

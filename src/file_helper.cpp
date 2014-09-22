@@ -402,7 +402,7 @@ DNA readDNA(const std::string& path, std::string& error) {
 	// read polygons
 	Color color;
 	float alpha;
-	Polygon::Point pp;
+	Point pp;
 	Polygon p;
 	for (std::size_t i = 0; i < d.polyCount; ++i) {
 		// R

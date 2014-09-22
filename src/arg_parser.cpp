@@ -3,7 +3,6 @@
 
 img_iter_saver::img_iter_saver(const std::string& imgPath, const ImageFormat f, const img_iter& ii, SaveOption so, int num)
 : ii(ii), so(so), optNum(num), imgPath(imgPath), saveFormat(f), saveExt(ImageFormatToExtension(saveFormat)) {
-	save();
 }
 
 
@@ -17,7 +16,11 @@ void img_iter_saver::save() {
 	if (last == ii.improvements())
 		return;
 	// print status
-	printf("Iter: %6d\tImp: %6d\tFit: %f\tTime:%6d s\n", ii.iterations(), ii.improvements(), ii.fitness(), ii.runtime());
+	std::cout << "Iter: " << std::setw(6) << ii.iterations()
+	          << "\tImp: " << std::setw(6) << ii.improvements()
+	          << "\tFit: " << ii.fitness()
+	          << "\tTime: " << std::setw(6) << ii.runtime() << " s"
+	          << std::endl;
 	last = ii.improvements();
 	iw.write(ii.getImage(), saveImgPath(), saveFormat);
 	writeDNA(ii.getDNA(), saveDNAPath());

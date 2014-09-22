@@ -3,6 +3,7 @@
 #include "canvas.h"
 #include "dna.h"
 #include "poly_mutator.h"
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <iostream>
@@ -25,17 +26,29 @@ public:
 	DNA getDNA(void) const;
 	const Canvas& getCanvas(void) const;
 private:
+	img_iter(const Image&, const int, const int, bool);
+	void init();
 	void drawPolygons(void);
 	static float getMaxAccuracy(const Image&);
 	static float getAccuracy(const Color&, const Color&);
 	static int getDiff(const Color::ColorChannel, const Color::ColorChannel);
 	float getFitness(void) const;
+	float blockAccuracy(const int, const int) const;
+	static int countBlocks(const Rectangle&);
+	void recalcAccuracy(const Rectangle&);
 
+	static constexpr int blockSize = 50;	// px
+	static constexpr float maxBlockAccuracy = blockSize * blockSize;
 	const Image original;
 	Canvas canvas;
 	poly_mutator pm;
 	const float maxAccuracy;
 	std::vector<IterPoly> polygons;
+	std::vector<std::vector<float>> blockAcc;
+	const int blockCountX;
+	const int blockCountY;
+	Rectangle changeRect;
+	bool useChangeRect = false;
 	unsigned int iter = 0;
 	unsigned int imp = 0;
 	float fit = 0;

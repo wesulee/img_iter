@@ -1,41 +1,83 @@
 #include "img_iter.h"
 
 
-img_iter::img_iter(const Image& img, const int pc, const int vc)
-: original(img), canvas(img.width(), img.height()), pm(pc, vc, img.width(),img.height()),
-  maxAccuracy(getMaxAccuracy(img)) {
+img_iter::img_iter(const Image& img, const int pc, const int vc, bool dummy)
+: original(img), canvas(img.width(), img.height()), pm(pc, vc, img.width(), img.height()),
+  maxAccuracy(getMaxAccuracy(img)),
+  blockCountX(img.width() % blockSize == 0 ? img.width() / blockSize : img.width() / blockSize + 1),
+  blockCountY(img.height() % blockSize == 0 ? img.height() / blockSize : img.height() / blockSize + 1) {
+	dummy = dummy;	// get rid of warning
 	polygons.reserve(pc);
+	blockAcc.reserve(blockCountX);
+	for (int i = 0; i < blockCountX; ++i) {
+		blockAcc.emplace_back();
+		blockAcc[i].reserve(blockCountY);
+	}
+}
+
+
+img_iter::img_iter(const Image& img, const int pc, const int vc)
+: img_iter(img, pc, vc, true) {
 	for (int i = 0; i < pc; ++i)
 		polygons.emplace_back(pm);
-	drawPolygons();
-	fit = getFitness();
-	start = std::chrono::high_resolution_clock::now();
+	init();
 }
 
 
 img_iter::img_iter(const Image& img, const DNA& d)
-: original(img), canvas(img), pm(d.polyCount, d.vertCount, img.width(), img.height()),
-  maxAccuracy(getMaxAccuracy(img)) {
-	polygons.reserve(d.polyCount);
+: img_iter(img, d.polyCount, d.vertCount, true) {
 	for (auto it = d.data.begin(); it != d.data.end(); ++it)
 		polygons.emplace_back(pm, *it);
+	init();
+}
+
+
+void img_iter::init() {
 	drawPolygons();
+	// set block accuracy
+	for (int i = 0; i < blockCountX; ++i) {
+		for (int j = 0; j < blockCountY; ++j) {
+			blockAcc[i].push_back(blockAccuracy(i, j));
+		}
+	}
 	fit = getFitness();
 	start = std::chrono::high_resolution_clock::now();
 }
 
 
+// assumes all vertices are >= 0
 void img_iter::iterate() {
 	++iter;
 	IterPoly& ip = polygons[pm.randPolyIndex()];
+	Rectangle bounds1{ip.getBounds()};
 	ip.mutate();
 	drawPolygons();
-	float mfitness = getFitness();
-	if (mfitness < fit)
-		ip.undo();
+	Rectangle bounds2{ShapeHelper::joinRectangles(bounds1, ip.getBounds())};
+	if (useChangeRect) {	// recalc blocks from previous iteration
+		Rectangle bounds4{ShapeHelper::joinRectangles(changeRect, bounds2)};
+		// determine if faster to recalc two separate rectangles or a joined rectangle
+		if (countBlocks(bounds2) + countBlocks(changeRect) < countBlocks(bounds4)) {
+			recalcAccuracy(bounds2);
+			recalcAccuracy(changeRect);
+		}
+		else {
+			recalcAccuracy(bounds4);
+		}
+	}
 	else {
+		recalcAccuracy(bounds2);
+	}
+
+	const float mfit = getFitness();
+	if (mfit > fit) {
 		++imp;
-		fit = mfitness;
+		fit = mfit;
+		useChangeRect = false;
+	}
+	else {
+		ip.undo();
+		changeRect = bounds2;
+		useChangeRect = true;
 	}
 }
 
@@ -116,9 +158,42 @@ int img_iter::getDiff(const Color::ColorChannel a, const Color::ColorChannel b) 
 
 float img_iter::getFitness() const {
 	float accuracy = 0;
-	for (int x = 0; x < canvas.width(); ++x) {
-		for (int y = 0; y < canvas.height(); ++y)
-			accuracy += getAccuracy(original.get(x, y), canvas.getPoint(x, y));
+	for (int i = 0; i < blockCountX; ++i) {
+		for (int j = 0; j < blockCountY; ++j)
+			accuracy += blockAcc[i][j];
 	}
 	return accuracy / maxAccuracy;
+}
+
+
+float img_iter::blockAccuracy(const int i, const int j) const {
+	float accuracy = 0;
+	const int xLim = std::min((i + 1) * blockSize, original.width());
+	const int yLim = std::min((j + 1) * blockSize, original.height());
+	for (int x = i * blockSize; x < xLim; ++x) {
+		for (int y = j * blockSize; y < yLim; ++y)
+			accuracy += getAccuracy(original.get(x, y), canvas.getPoint(x, y));
+	}
+	return accuracy;
+}
+
+
+int img_iter::countBlocks(const Rectangle& rect) {
+	const int iLo = rect.x0 / blockSize;
+	const int iHi = rect.x1 % blockSize == 0 ? rect.x1 / blockSize : rect.x1 / blockSize + 1;
+	const int jLo = rect.y0 / blockSize;
+	const int jHi = rect.y1 % blockSize == 0 ? rect.y1 / blockSize : rect.y1 / blockSize + 1;
+	return (iHi - iLo + 1) * (jHi - jLo + 1);
+}
+
+
+void img_iter::recalcAccuracy(const Rectangle& rect) {
+	const int iLo = rect.x0 / blockSize;
+	const int iHi = rect.x1 % blockSize == 0 ? rect.x1 / blockSize : rect.x1 / blockSize + 1;
+	const int jLo = rect.y0 / blockSize;
+	const int jHi = rect.y1 % blockSize == 0 ? rect.y1 / blockSize : rect.y1 / blockSize + 1;
+	for (int i = iLo; i < iHi; ++i) {
+		for (int j = jLo; j < jHi; ++j)
+			blockAcc[i][j] = blockAccuracy(i, j);
+	}
 }
