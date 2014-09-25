@@ -1,8 +1,10 @@
 #include "arg_parser.h"
 
 
-img_iter_saver::img_iter_saver(const std::string& imgPath, const ImageFormat f, const img_iter& ii, SaveOption so, int num)
-: ii(ii), so(so), optNum(num), imgPath(imgPath), saveFormat(f), saveExt(ImageFormatToExtension(saveFormat)) {
+img_iter_saver::img_iter_saver(const std::string& imgPath, const ImageFormat f,
+	const img_iter& ii, SaveOption so, int num, std::ostream& os)
+: ii(ii), so(so), optNum(num), imgPath(imgPath), saveFormat(f),
+  saveExt(ImageFormatToExtension(saveFormat)), os(os) {
 }
 
 
@@ -16,11 +18,11 @@ void img_iter_saver::save() {
 	if (last == ii.improvements())
 		return;
 	// print status
-	std::cout << "Iter: " << std::setw(6) << ii.iterations()
-	          << "\tImp: " << std::setw(6) << ii.improvements()
-	          << "\tFit: " << ii.fitness()
-	          << "\tTime: " << std::setw(6) << ii.runtime() << " s"
-	          << std::endl;
+	os << "Iter: " << std::setw(6) << ii.iterations()
+	   << "\tImp: " << std::setw(6) << ii.improvements()
+	   << "\tFit: " << ii.fitness() * 100
+	   << "\tTime: " << std::setw(6) << ii.runtime() << " s"
+	   << std::endl;
 	last = ii.improvements();
 	iw.write(ii.getImage(), saveImgPath(), saveFormat);
 	writeDNA(ii.getDNA(), saveDNAPath());
@@ -102,15 +104,21 @@ arg_parser::arg_parser(const int argc, char** argv) {
 	arg_data.push_back(tmp);
 	tmp = empty_arg_data;
 
+	tmp.command = 's';
+	tmp.arguments.push_back("number");
+	tmp.arguments.push_back("'iter' OR 'imp'");
+	tmp.description = "save every <number> iterations or improvements";
+	arg_data.push_back(tmp);
+	tmp = empty_arg_data;
+
 	tmp.command = "console";
 	tmp.description = "display console only";
 	arg_data.push_back(tmp);
 	tmp = empty_arg_data;
 
-	tmp.command = 's';
-	tmp.arguments.push_back("number");
-	tmp.arguments.push_back("'iter' OR 'imp'");
-	tmp.description = "save every <number> iterations or improvements";
+	tmp.command = "log";
+	tmp.arguments.push_back("file_path");
+	tmp.description = "save console output to a file";
 	arg_data.push_back(tmp);
 	tmp = empty_arg_data;
 
@@ -159,12 +167,14 @@ arg_parser::arg_parser(const int argc, char** argv) {
 		else if ((*it).command == "d") {
 			if ((*it).arguments.size() != 1) {
 				std::cout << "Expecting one argument for -d" << std::endl;
+				continue;
 			}
 			dnaPath = (*it).arguments.front();
 		}
 		else if ((*it).command == "p") {
 			if ((*it).arguments.size() != 1) {
 				std::cout << "Expecting one argument for -p" << std::endl;
+				continue;
 			}
 			if (FileHelper::isUInt((*it).arguments.front())) {
 				polyCount = std::atoi((*it).arguments.front().c_str());
@@ -176,6 +186,7 @@ arg_parser::arg_parser(const int argc, char** argv) {
 		else if ((*it).command == "v") {
 			if ((*it).arguments.size() != 1) {
 				std::cout << "Expecting one argument for -v" << std::endl;
+				continue;
 			}
 			if (FileHelper::isUInt((*it).arguments.front())) {
 				vertCount = std::atoi((*it).arguments.front().c_str());
@@ -183,9 +194,6 @@ arg_parser::arg_parser(const int argc, char** argv) {
 			else {
 				std::cout << "Invalid number for -v" << std::endl;
 			}
-		}
-		else if ((*it).command == "console") {
-			program_mode = ProgramMode::CONSOLE;
 		}
 		else if ((*it).command == "s") {
 			if ((*it).arguments.size() != 2) {
@@ -209,6 +217,16 @@ arg_parser::arg_parser(const int argc, char** argv) {
 				std::cout << "Invalid second argument for -s" << std::endl;
 			}
 		}
+		else if ((*it).command == "console") {
+			program_mode = ProgramMode::CONSOLE;
+		}
+		else if ((*it).command == "log") {
+			if ((*it).arguments.size() != 1) {
+				std::cout << "Expecting one argument for -log" << std::endl;
+				continue;
+			}
+			logPath = (*it).arguments.front();
+		}
 	}
 
 	valid = !imgPath.empty();
@@ -222,9 +240,21 @@ void arg_parser::execute() {
 	if (!valid)
 		return;
 
+	std::streambuf* buf = std::cout.rdbuf();
+	std::ofstream logFile;
 	ImageReader ir;
 	img_iter* ii = nullptr;
 	Image orig;
+	// log file setup
+	if (!logPath.empty()) {
+		logFile.open(logPath, std::ofstream::out | std::ofstream::app);
+		if (logFile)
+			buf = logFile.rdbuf();
+		else
+			std::cout << "Error opening log file" << std::endl;
+	}
+	std::ostream saveStream{buf};
+
 	ir.read(imgPath);
 	orig = ir.getImage();
 	if (orig.empty()) {
@@ -246,9 +276,9 @@ void arg_parser::execute() {
 	}
 
 	// run
-	img_iter_saver iis{imgPath, ImageFormat::PPM, *ii, save_option, save_option_number};
+	img_iter_saver iis{imgPath, ImageFormat::PPM, *ii, save_option, save_option_number, saveStream};
 	if (program_mode == ProgramMode::VIEWER) {
-		Viewer viewer{orig, ii->getCanvas()};
+		Viewer viewer{orig, ii->bestImage()};
 		if (viewer.hasError())
 			return;
 

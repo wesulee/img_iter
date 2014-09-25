@@ -1,10 +1,19 @@
 #pragma once
 
+#include <cmath>
+#include <iostream>
+
 
 class Rectangle;
 
 
-struct Point {
+class Point {
+public:
+	Point() = default;
+	Point(const Point&);
+	Point(const int, const int);
+	~Point() = default;
+
 	int x;
 	int y;
 };
@@ -21,18 +30,14 @@ public:
 class Rectangle : public Shape {
 public:
 	Rectangle() = default;
-	Rectangle(const Point& p) 
-	: x0(p.x), y0(p.y), x1(p.x), y1(p.y) {}
-	Rectangle(const Rectangle& r)
-	: x0(r.x0), y0(r.y0), x1(r.x1), y1(r.y1) {}
+	Rectangle(const Point&);
+	Rectangle(const Rectangle&);
 	~Rectangle() = default;
-	Rectangle getBounds() const override {
-		return *this;
-	}
+	Rectangle getBounds(void) const override;
 	Rectangle& operator=(const Rectangle&) = default;
-	bool operator==(const Rectangle& r) const {
-		return (x0 == r.x0 && y0 == r.y0 && x1 == r.x1 && y1 == r.y1);
-	}
+	bool operator==(const Rectangle&) const;
+	bool contains(const Point&) const;
+	int area(void) const;
 
 	int x0;
 	int y0;
@@ -41,8 +46,14 @@ public:
 };
 
 
+std::ostream& operator<<(std::ostream&, const Point&);
+std::ostream& operator<<(std::ostream&, const Rectangle&);
+
+
 namespace ShapeHelper {
 	void updateRectBoundsX(Rectangle&, const int);
 	void updateRectBoundsY(Rectangle&, const int);
 	Rectangle joinRectangles(const Rectangle&, const Rectangle&);
+	bool intersects(const Rectangle&, const Rectangle&);
+	bool validRect(const Rectangle&);
 }

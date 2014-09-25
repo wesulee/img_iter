@@ -2,6 +2,8 @@
 
 #include "shape.h"
 #include <algorithm>
+#include <cassert>
+#include <iostream>
 #include <list>
 #include <vector>
 
@@ -17,12 +19,11 @@ namespace PolyHelper {
 	};
 	struct FillLine {
 		int y;
-		std::list<int> xList;
+		std::vector<int> xList;
 	};
 }
 
 
-// note: adding vertices may invalidate all references to existing vertices
 class Polygon : public Shape {
 public:
 	typedef std::vector<Point> Container;
@@ -33,7 +34,7 @@ public:
 	std::size_t size(void) const;
 	void clear(void);
 	bool empty(void) const;
-	const Point& get(const std::size_t) const;
+	Point get(const std::size_t) const;
 	void add(const Point&);
 	void add(const int, const int);
 	void setX(const std::size_t, const int);
@@ -42,8 +43,13 @@ public:
 	const Container& vertices(void) const;
 	const std::vector<PolyHelper::FillLine>& fillDetails(void) const;
 private:
+	Rectangle newBounds(void) const;
+
 	Container v;
 	Rectangle bounds;
 	mutable std::vector<PolyHelper::FillLine> fillCache;
 	mutable bool useCache = false;
 };
+
+
+std::ostream& operator<<(std::ostream&, const Polygon&);

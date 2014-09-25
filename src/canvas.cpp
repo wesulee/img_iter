@@ -69,8 +69,7 @@ void Canvas::setPoint(const int x, const int y, const Color& c) {
 
 
 void Canvas::drawPoint(const int x, const int y) {
-	if (x < WIDTH && y < HEIGHT)
-		getPoint(x, y).blend(brushColor, alpha);
+	getPoint(x, y).blend(brushColor, alpha);
 }
 
 
@@ -100,41 +99,6 @@ void Canvas::drawLine(const int x0, const int y0, const int x1, const int y1) {
 }
 
 
-// like drawLine() but doesn't draw last pixel (for drawing connected lines)
-void Canvas::drawLine2(const int x0, const int y0, const int x1, const int y1) {
-	const int dx = std::abs(x1 - x0);
-	const int dy = std::abs(y1 - y0);
-	const int sx = x0 < x1 ? 1 : -1;
-	const int sy = y0 < y1 ? 1 : -1;
-	int err = dx - dy;
-	int e2;
-	int x = x0;
-	int y = y0;
-	while (true) {
-		if (x == x1 && y == y1)
-			break;
-
-		drawPoint(x, y);
-		e2 = err * 2;
-		if (e2 > -dy) {
-			err -= dy;
-			x += sx;
-		}
-		if (e2 < dx) {
-			err += dx;
-			y += sy;
-		}
-	}
-}
-
-
-// draw a horizontal line (for filling polygons)
-void Canvas::drawLineH(const int x0, const int y, const int x1) {
-	for (int x = x0; x <= x1; ++x)
-		drawPoint(x, y);
-}
-
-
 void Canvas::drawRect(const int x, const int y, const int w, const int h) {
 	int cx = x;
 	int cy = y;
@@ -150,14 +114,6 @@ void Canvas::drawRect(const int x, const int y, const int w, const int h) {
 	// left
 	for (; cy > y; --cy)
 		drawPoint(cx, cy);
-}
-
-
-void Canvas::fillRect(const int x, const int y, const int w, const int h) {
-	for (int cx = x; cx < x + w; ++cx) {
-		for (int cy = y; cy < y + h; ++cy)
-			drawPoint(cx, cy);
-	}
 }
 
 
@@ -191,23 +147,65 @@ void Canvas::draw(const Image& img) {
 
 
 void Canvas::fill(const Polygon& p) {
-	const auto lines = p.fillDetails();
-	int state;
+	const auto& lines = p.fillDetails();
+	bool draw;
 	int x = 0;	// default value
 	for (auto it = lines.cbegin(); it != lines.cend(); ++it) {
-		state = 0;
-		for (auto xit = (*it).xList.cbegin(); xit != (*it).xList.cend(); ++xit) {
-			switch (state) {
-			case 0:
-				x = *xit;
-				break;
-			case 1:
+		draw = false;
+		for (auto xit = (*it).xList.cbegin(); xit != (*it).xList.cend(); ++xit, draw = !draw) {
+			if (draw)
 				drawLineH(x, (*it).y, *xit);
-				break;
-			default:
-				break;
+			else
+				x = *xit;
+		}
+	}
+}
+
+
+void Canvas::fill(const Rectangle& r) {
+	for (int y = r.y0; y <= r.y1; ++y)
+		drawLineH(r.x0, y, r.x1);
+}
+
+
+// fill intersection of polygon and mask
+void Canvas::fill(const Polygon& p, const Rectangle& mask) {
+	const auto& lines = p.fillDetails();
+	assert(!lines.empty());
+
+	unsigned int i = mask.y0 <= lines.front().y ? 0 : mask.y0 - lines.front().y;
+	unsigned int iHi = std::min(i + (mask.y1 - lines[i].y), lines.size() - 1);
+
+	assert(ShapeHelper::validRect(mask));
+	assert(i < lines.size());	// polygon isn't inside mask
+	assert(lines[i].y >= mask.y0);
+	assert(lines[i].y <= mask.y1);
+	assert(iHi < lines.size());
+	assert(iHi >= i);
+	assert(lines[iHi].y <= mask.y1);
+
+	int drawLeft;
+	int drawRight;
+	bool draw;
+	int x;	// left point
+	for (; i <= iHi; ++i) {
+		assert(lines[i].y >= mask.y0);
+		assert(lines[i].y <= mask.y1);
+
+		draw = false;
+		const auto& fillLines = lines[i].xList;
+		for (auto it = fillLines.cbegin(); it != fillLines.cend(); ++it, draw = !draw) {
+			if (draw) {
+				// does horizontal draw segment intersect with rectangle?
+				if (!((x > mask.x1) || (*it < mask.x0))) {
+					drawLeft = std::max(x, mask.x0);
+					drawRight = std::min(*it, mask.x1);
+					drawLineH(drawLeft, lines[i].y, drawRight);
+				}
 			}
-			state = (state + 1) % 2;
+			else {
+				x = *it;
+			}
 		}
 	}
 }
@@ -236,4 +234,45 @@ int Canvas::width() const {
 
 int Canvas::height() const {
 	return HEIGHT;
+}
+
+
+// like drawLine() but doesn't draw last pixel (for drawing connected lines)
+void Canvas::drawLine2(const int x0, const int y0, const int x1, const int y1) {
+	const int dx = std::abs(x1 - x0);
+	const int dy = std::abs(y1 - y0);
+	const int sx = x0 < x1 ? 1 : -1;
+	const int sy = y0 < y1 ? 1 : -1;
+	int err = dx - dy;
+	int e2;
+	int x = x0;
+	int y = y0;
+	while (true) {
+		if (x == x1 && y == y1)
+			break;
+
+		drawPoint(x, y);
+		e2 = err * 2;
+		if (e2 > -dy) {
+			err -= dy;
+			x += sx;
+		}
+		if (e2 < dx) {
+			err += dx;
+			y += sy;
+		}
+	}
+}
+
+
+// draw a horizontal line
+void Canvas::drawLineH(const int x0, const int y, const int x1) {
+	for (int x = x0; x <= x1; ++x)
+		drawPoint(x, y);
+}
+
+
+void Canvas::drawLineV(const int x, const int y0, const int y1) {
+	for (int y = y0; y <= y1; ++y)
+		drawPoint(x, y);
 }

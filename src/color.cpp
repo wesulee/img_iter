@@ -1,17 +1,15 @@
 #include "color.h"
 
 
-Color::Color()
-: R(defColorChannel), G(defColorChannel), B(defColorChannel) {
-}
-
-Color::Color(ColorChannel r, ColorChannel g, ColorChannel b)
-: R(r), G(g), B(b) {
+Color::Color() : R(defColorChannel), G(defColorChannel), B(defColorChannel) {
 }
 
 
-Color::Color(const Color& c)
-: R(c.R), G(c.G), B(c.B) {
+Color::Color(ColorChannel r, ColorChannel g, ColorChannel b) : R(r), G(g), B(b) {
+}
+
+
+Color::Color(const Color& c) : R(c.R), G(c.G), B(c.B) {
 }
 
 

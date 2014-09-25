@@ -194,6 +194,7 @@ IterPoly::IterPoly(poly_mutator& pm, const PolyDNA& d)
 : mutator(pm), p(), c(d.color), a(d.alpha) {
 	for (auto it = d.v.cbegin(); it != d.v.cend(); ++it)
 		p.add(*it);
+	assert((a >= 0) && (a <= 1));
 }
 
 
@@ -282,6 +283,16 @@ Mutation IterPoly::lastMutation() const {
 
 Rectangle IterPoly::getBounds() const {
 	return p.getBounds();
+}
+
+
+void IterPoly::setIndex(const int index) {
+	i = index;
+}
+
+
+int IterPoly::getIndex() const {
+	return i;
 }
 
 

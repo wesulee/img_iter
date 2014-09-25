@@ -1,6 +1,6 @@
 #pragma once
 
-#include "canvas.h"
+#include "image.h"
 #include <SDL2/SDL.h>
 #include <iostream>
 #include <string>
@@ -8,7 +8,7 @@
 
 class Viewer {
 public:
-	Viewer(const Image&, const Canvas&);
+	Viewer(const Image&, const Image&);
 	~Viewer();
 	void draw(void);
 	void processEvents(void);
@@ -23,7 +23,7 @@ private:
 	static constexpr int paddingLR = 5;		// padding of left and right side of window
 	static constexpr int paddingTB = 5;		// padding of top and bottom of window
 	static constexpr int paddingImg = 5;	// padding between images
-	const Canvas& canvas;
+	const Image& image;		// image that img_iter will update
 	std::ostream* log = &std::cerr;
 	SDL_Window* win = nullptr;
 	SDL_Surface* screen = nullptr;

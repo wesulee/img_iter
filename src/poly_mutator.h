@@ -3,6 +3,7 @@
 #include "color.h"
 #include "dna.h"
 #include "polygon.h"
+#include <cassert>
 #include <cmath>
 #include <limits>
 #include <random>
@@ -66,6 +67,8 @@ public:
 	float getAlpha(void) const;
 	Mutation lastMutation(void) const;
 	Rectangle getBounds(void) const;
+	void setIndex(const int);
+	int getIndex(void) const;
 private:
 	template <class T> static void swap(T&, T&);
 	void swapVertX(void);
@@ -77,6 +80,7 @@ private:
 	Polygon p;
 	Color c;
 	float a;
+	int i = 0;	// maintained by img_iter
 	// members for implementing undo()
 	std::size_t index;	// vertex index
 	int pp;		// old x or y coordinate

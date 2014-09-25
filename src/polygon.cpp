@@ -5,9 +5,11 @@ Polygon::Polygon(const Container& c) : v(c) {
 	if (!c.empty()) {
 		auto it = c.cbegin();
 		bounds = Rectangle(*it);
+		assert(bounds.contains(*it));
 		for (++it; it != c.cend(); ++it) {
 			ShapeHelper::updateRectBoundsX(bounds, (*it).x);
 			ShapeHelper::updateRectBoundsY(bounds, (*it).y);
+			assert(bounds.contains(*it));
 		}
 	}
 }
@@ -29,7 +31,7 @@ bool Polygon::empty() const {
 }
 
 
-const Point& Polygon::get(const std::size_t i) const {
+Point Polygon::get(const std::size_t i) const {
 	return v[i];
 }
 
@@ -44,6 +46,7 @@ void Polygon::add(const Point& p) {
 		ShapeHelper::updateRectBoundsY(bounds, p.y);
 	}
 	v.push_back(p);
+	assert(bounds.contains(p));
 }
 
 
@@ -57,20 +60,23 @@ void Polygon::add(const int x, const int y) {
 		ShapeHelper::updateRectBoundsY(bounds, y);
 	}
 	v.push_back(Point{x, y});
+	assert(bounds.contains(Point{x, y}));
 }
 
 
 void Polygon::setX(const std::size_t i, const int x) {
 	useCache = false;
 	v[i].x = x;
-	ShapeHelper::updateRectBoundsX(bounds, x);
+	bounds = newBounds();
+	assert(bounds.contains(v[i]));
 }
 
 
 void Polygon::setY(const std::size_t i, const int y) {
 	useCache = false;
 	v[i].y = y;
-	ShapeHelper::updateRectBoundsX(bounds, y);
+	bounds = newBounds();
+	assert(bounds.contains(v[i]));
 }
 
 
@@ -85,6 +91,7 @@ const Polygon::Container& Polygon::vertices() const {
 
 
 // https://www.cs.rit.edu/~icss571/filling/index.html
+// note: fillLines returned are always in ascending order
 const std::vector<PolyHelper::FillLine>& Polygon::fillDetails() const {
 	using namespace PolyHelper;
 	if (useCache)
@@ -100,9 +107,8 @@ const std::vector<PolyHelper::FillLine>& Polygon::fillDetails() const {
 		int xMax;
 		auto it = v.cbegin();
 		scanMax = (*it).y;	// default value
-		Point prevPoint;
+		Point prevPoint{*it};
 		Point currPoint;
-		prevPoint = *it;
 		++it;
 		std::size_t checked = 0;
 		while (checked < v.size()) {
@@ -111,26 +117,26 @@ const std::vector<PolyHelper::FillLine>& Polygon::fillDetails() const {
 			if (currPoint.y > scanMax)
 				scanMax = currPoint.y;
 
-			if ((prevPoint.y - currPoint.y) == 0)	// skip slope 0
-				continue;
+			// add to globalTable only if slope != 0
+			if ((prevPoint.y - currPoint.y) != 0) {
+				if (prevPoint.y < currPoint.y) {
+					xMin = prevPoint.x;
+					xMax = currPoint.x;
+					tmp.yMin = prevPoint.y;
+					tmp.yMax = currPoint.y;
+					tmp.x = static_cast<float>(prevPoint.x);
+				}
+				else {
+					xMin = currPoint.x;
+					xMax = prevPoint.x;
+					tmp.yMin = currPoint.y;
+					tmp.yMax = prevPoint.y;
+					tmp.x = static_cast<float>(currPoint.x);
+				}
 
-			if (prevPoint.y < currPoint.y) {
-				xMin = prevPoint.x;
-				xMax = currPoint.x;
-				tmp.yMin = prevPoint.y;
-				tmp.yMax = currPoint.y;
-				tmp.x = static_cast<float>(prevPoint.x);
+				tmp.mInv = static_cast<float>(xMax - xMin) / (tmp.yMax - tmp.yMin);
+				globalTable.push_back(tmp);
 			}
-			else {
-				xMin = currPoint.x;
-				xMax = prevPoint.x;
-				tmp.yMin = currPoint.y;
-				tmp.yMax = prevPoint.y;
-				tmp.x = static_cast<float>(currPoint.x);
-			}
-
-			tmp.mInv = static_cast<float>(xMax - xMin) / (tmp.yMax - tmp.yMin);
-			globalTable.push_back(tmp);
 			prevPoint = currPoint;
 			++it;
 			if (it == v.cend())
@@ -143,48 +149,59 @@ const std::vector<PolyHelper::FillLine>& Polygon::fillDetails() const {
 	std::list<FillEdge> active;
 	FillLine tmpLine;
 	float frac;
-	int state;
+	bool state;
 	float dummy;	// for modf
-	for (int scan = globalTable.front().yMin; scan < scanMax; ++scan) {
+	for (int scan = globalTable.front().yMin; scan <= scanMax; ++scan) {
 		tmpLine.y = scan;
 		tmpLine.xList.clear();
-		state = 0;
+		state = false;
 		// move edges from global to active
 		while (!globalTable.empty() && (globalTable.front().yMin == scan)) {
 			active.push_back(globalTable.front());
 			globalTable.pop_front();
 		}
 
-		for (auto it = active.begin(); it != active.end(); ++it) {
-			switch (state) {
-			case 0:	// beginning of draw
-				frac = std::abs(std::modf((*it).x, &dummy));
-				if (frac < 0.5)
-					tmpLine.xList.push_back(static_cast<int>((*it).x));
-				else
-					tmpLine.xList.push_back(static_cast<int>((*it).x) + 1);
-				break;
-			case 1:	// end of draw
+		for (auto it = active.begin(); it != active.end(); ++it, state = !state) {
+			if (state) {
 				frac = std::abs(std::modf((*it).x, &dummy));
 				if (frac >= 0.5)
 					tmpLine.xList.push_back(static_cast<int>((*it).x) + 1);
 				else
 					tmpLine.xList.push_back(static_cast<int>((*it).x));
-				break;
-			case 2:	// not drawing
-				break;
-			default:
-				break;	// shouldn't happen
 			}
-			state = (state + 1) % 2;
+			else {
+				frac = std::abs(std::modf((*it).x, &dummy));
+				if (frac < 0.5)
+					tmpLine.xList.push_back(static_cast<int>((*it).x));
+				else
+					tmpLine.xList.push_back(static_cast<int>((*it).x) + 1);
+			}
+
 			if ((*it).yMax == scan + 1)	// remove current edge from active if at edge limit
 				it = --active.erase(it);
 			else	// update x
 				(*it).x += (*it).mInv;
 		}
-		tmpLine.xList.sort();
+		std::sort(tmpLine.xList.begin(), tmpLine.xList.end());
 		fillLines.push_back(tmpLine);
 	}
+
+	#ifndef NDEBUG
+	assert(!fillCache.empty());
+	assert(bounds.y0 == fillCache.front().y);
+	assert(bounds.y1 == fillCache.back().y);
+	assert(fillCache.back().y - fillCache.front().y >= 0);
+	assert(static_cast<std::size_t>(fillCache.back().y - fillCache.front().y + 1) == fillCache.size()) ;
+	// check y is sorted
+	auto it = fillCache.cbegin();
+	auto prevY = (*it).y;
+	for (++it; it != fillCache.cend(); ++it) {
+		assert(prevY <= (*it).y);
+		assert((*it).y - prevY == 1);
+		prevY = (*it).y;
+		assert((*it).xList.size() % 2 == 0);
+	}
+	#endif
 
 	useCache = true;
 	return fillCache;
@@ -198,4 +215,33 @@ bool PolyHelper::FillEdge::operator<(const PolyHelper::FillEdge& that) const {
 		return (x < that.x);
 	else
 		return false;
+}
+
+
+Rectangle Polygon::newBounds() const {
+	assert(!v.empty());
+	auto it = v.cbegin();
+	Rectangle r{*it};
+	++it;
+	while (it != v.cend()) {
+		ShapeHelper::updateRectBoundsX(r, (*it).x);
+		ShapeHelper::updateRectBoundsY(r, (*it).y);
+		++it;
+	}
+	return r;
+}
+
+
+std::ostream& operator<<(std::ostream& os, const Polygon& p) {
+	const auto& vert = p.vertices();
+	auto it = vert.cbegin();
+	if (it != vert.cend()) {
+		os << *it;
+		++it;
+		while (it != vert.cend()) {
+			os << ", " << *it;
+			++it;
+		}
+	}
+	return os;
 }

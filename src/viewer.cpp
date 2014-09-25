@@ -1,8 +1,8 @@
 #include "viewer.h"
 
 
-Viewer::Viewer(const Image& img, const Canvas& can)
-: canvas(can), imgWidth(img.width()), imgHeight(img.height()),
+Viewer::Viewer(const Image& src, const Image& iter)
+: image(iter), imgWidth(src.width()), imgHeight(src.height()),
   width((paddingLR + imgWidth)*2 + paddingImg),
   height(paddingTB*2 + imgHeight), rectOrig({paddingLR, paddingTB, imgWidth, imgHeight}),
   rectIter({rectOrig.x + imgWidth + paddingImg, rectOrig.y, rectOrig.w, rectOrig.h}) {
@@ -20,10 +20,10 @@ Viewer::Viewer(const Image& img, const Canvas& can)
 		return;
 	}
 	screen = SDL_GetWindowSurface(win);
-	imgOrig = toSurface(img);
+	imgOrig = toSurface(src);
 	if (imgOrig == nullptr)
 		return;
-	imgIter = toSurface(canvas.getImage());
+	imgIter = toSurface(image);
 	if (imgIter == nullptr)
 		return;
 
@@ -118,6 +118,6 @@ void Viewer::setPixel(SDL_Surface* const surface, const int x, const int y, cons
 void Viewer::updateIterSurface() {
 	for (int x = 0; x < imgIter->w; ++x) {
 		for (int y = 0; y < imgIter->h; ++y)
-			setPixel(imgIter, x, y, canvas.getPoint(x, y));
+			setPixel(imgIter, x, y, image.get(x, y));
 	}
 }
