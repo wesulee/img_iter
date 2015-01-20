@@ -6,7 +6,7 @@ img_iter::img_iter(const Image& img, const int pc, const int vc, bool dummy)
   pm(pc, vc, img.width(), img.height()), maxAccuracy(getMaxAccuracy(img)),
   blockCountX(img.width() % blockSize == 0 ? img.width() / blockSize : img.width() / blockSize + 1),
   blockCountY(img.height() % blockSize == 0 ? img.height() / blockSize : img.height() / blockSize + 1) {
-	dummy = dummy;	// get rid of warning
+	(void)dummy;
 	polygons.reserve(pc);
 	blocks.reserve(blockCountX);
 	for (int i = 0; i < blockCountX; ++i) {
@@ -181,8 +181,8 @@ void img_iter::drawBlock(const int i, const int j) {
 	Rectangle mask;
 	mask.x0 = i * blockSize;
 	mask.y0 = j * blockSize;
-	mask.x1 = mask.x0 + blockSize - 1;
-	mask.y1 = mask.y0 + blockSize - 1;
+	mask.x1 = std::min(mask.x0 + blockSize - 1, original.width() - 1);
+	mask.y1 = std::min(mask.y0 + blockSize - 1, original.height() - 1);
 	// reset block
 	canvas.setColor(background);
 	canvas.setAlpha(1.0);
