@@ -6,11 +6,6 @@ For a working example of his idea, see [http://alteredqualia.com/visualization/e
 ### Dependencies
 C++11 compiler, SDL2.
 
-
-### Building
-
-    make install
-
 ### Builds
 [Windows](https://bitbucket.org/Wesulee/img_iter_build/get/master.zip)
 
